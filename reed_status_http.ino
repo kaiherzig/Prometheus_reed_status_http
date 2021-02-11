@@ -1,100 +1,78 @@
-/*
- * UNTESTED!!!!!
- */
-
 #include <ESP8266WiFi.h>
 
-#define WIFI_SSID "<<FILLME>>"
-#define WIFI_KEY "<<FILLME>>"
-
-// Pin to reed, other to GND
-uint8_t inPin = D5;
+String header;
+const int statusPin = 13;
 
 WiFiServer server(80);
+WiFiClient client;
+
+const char* SSID = "<<FILLME>>";
+const char* PASS = "<<FILLME>>";
 
 void setup() {
-  pinMode(inPin, INPUT);
   Serial.begin(115200);
+  pinMode(statusPin, INPUT_PULLUP);
+  delay(50);
 
-  // Initiate Wi-Fi connection setup
-  WiFi.begin(WIFI_SSID, WIFI_KEY);
-
-  // Show status on serial monitor
+  Serial.println();
+  Serial.println();
   Serial.print("Connecting to ");
-  Serial.print(WIFI_SSID); Serial.println(" ...");
-  while (WiFi.status() != WL_CONNECTED)
-  {
+  Serial.println(SSID);
+
+  WiFi.begin(SSID, PASS);
+
+  while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("");
-  Serial.print("Connected! IP address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println();
+  Serial.println("WiFi connected");
+  delay(1000);
 
+  //Start the server
   server.begin();
   Serial.println("Server started");
+
+  //Print the IP Address
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+  delay(1000);
 }
 
-
-
-
-// This is the main section and will loop continuously
-void loop() {
-
+void loop() 
+{
   WiFiClient client = server.available();
-
-  if (client)
-  {
-    Serial.println("New client");
-    boolean blank_line = true;
-    while (client.connected())
-    {
-      if (client.available())
-      {
+  //CheckDoorStatus();
+  if (client) {
+    Serial.println("Neuer Client.");
+    String currentLine = "";
+    while (client.connected()) {
+      if (client.available()) {
+        
         char c = client.read();
-
-        if (c == '\n' && blank_line)
-        {
-          String door_state;
-
-          if (digitalRead(inPin) == LOW)
-          {
-            door_state = "false";
+        Serial.write(c);
+        header += c;
+        if (c == '\n') {
+          if (currentLine.length() == 0) {
+            int newStatus = digitalRead(statusPin);
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println("Connection: close");
+            client.println();
+            client.println(newStatus);
+            break;
+          } else {
+            currentLine = "";
           }
-          else
-          {
-            door_state = "true";
-          }
-
-          Serial.println(door_state);
-          client.println("HTTP/1.1 200 OK");
-          client.println("Content-Type: text/html");
-          client.println("Connection: close");
-          client.println();
-          client.println("<!DOCTYPE HTML>");
-          client.println("<html>");
-          client.println("<head></head>");
-          client.println("<body>");
-          client.println(door_state);
-          client.println("</body></html>");
-          break;
-        }
-        if (c == '\n')
-        {
-          // when starts reading a new line
-          blank_line = true;
-        }
-        else if (c != '\r')
-        {
-          // when finds a character on the current line
-          blank_line = false;
+        } else if (c != '\r') {
+          currentLine += c;
         }
       }
     }
-    // closing the client connection
-    delay(1);
+    header = "";
     client.stop();
-    Serial.println("Client disconnected.");
+    Serial.println("Client getrennt.");
+    Serial.println("");
   }
 
 }

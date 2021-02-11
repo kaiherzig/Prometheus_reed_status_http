@@ -1,2 +1,2 @@
-Reed contact on D5 and GND
+Reed contact on D7 and GND
 Presenting state via HTTP Server.
